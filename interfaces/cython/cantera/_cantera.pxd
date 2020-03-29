@@ -750,9 +750,12 @@ cdef extern from "cantera/oneD/StFlow.h":
         void setPressure(double)
         void enableRadiation(cbool)
         cbool radiationEnabled()
+        double radiativeHeatLoss(size_t)
         double pressure()
         void setFixedTempProfile(vector[double]&, vector[double]&)
         void setBoundaryEmissivities(double, double)
+        double leftEmissivity()
+        double rightEmissivity()
         void solveEnergyEqn()
         void fixTemperature()
         cbool doEnergy(size_t)
@@ -760,6 +763,7 @@ cdef extern from "cantera/oneD/StFlow.h":
         cbool withSoret()
         void setFreeFlow()
         void setAxisymmetricFlow()
+        string flowType()
 
 
 cdef extern from "cantera/oneD/IonFlow.h":
@@ -815,6 +819,8 @@ cdef extern from "cantera/oneD/Sim1D.h":
         size_t maxGridPoints(size_t) except +translate_exception
         void setGridMin(int, double) except +translate_exception
         void setFixedTemperature(double) except +translate_exception
+        double fixedTemperature()
+        double fixedTemperatureLocation()
         void setInterrupt(CxxFunc1*) except +translate_exception
         void setTimeStepCallback(CxxFunc1*)
         void setSteadyCallback(CxxFunc1*)

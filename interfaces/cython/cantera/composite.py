@@ -513,9 +513,15 @@ class SolutionArray:
             self._indices = list(np.ndindex(self._shape))
             self._output_dummy = self._states[..., 0]
 
+        reserved = self.__dir__()
+
         self._extra = {}
         if isinstance(extra, dict):
             for name, v in extra.items():
+                if name in reserved:
+                    raise ValueError(
+                        "Unable to create extra column '{}': name is already "
+                        "used by SolutionArray objects.".format(name))
                 if not np.shape(v):
                     self._extra[name] = [v]*self._shape[0]
                 elif len(v) == self._shape[0]:
@@ -526,6 +532,10 @@ class SolutionArray:
 
         elif extra and self._shape == (0,):
             for name in extra:
+                if name in reserved:
+                    raise ValueError(
+                        "Unable to create extra column '{}': name is already "
+                        "used by SolutionArray objects.".format(name))
                 self._extra[name] = []
 
         elif extra:
@@ -535,8 +545,13 @@ class SolutionArray:
 
     def __getitem__(self, index):
         states = self._states[index]
-        shape = states.shape[:-1]
-        return SolutionArray(self._phase, shape, states)
+        if(isinstance(states, list)):
+            num_rows = len(states)
+            return SolutionArray(self._phase, num_rows, states)
+        else:
+            shape = states.shape[:-1]
+            return SolutionArray(self._phase, shape, states)
+
 
     def __getattr__(self, name):
         if name in self._extra:
@@ -716,12 +731,16 @@ class SolutionArray:
                 if s in valid_species:
                     state_data[-1][:, i] = data[:, valid_species[s]]
 
-        # labels may include calculated properties that must not be restored
-        calculated = self._scalar + self._n_species + self._n_reactions
-        exclude = [l for l in labels
-                   if any([v in l for v in calculated])]
-        extra = {l: list(data[:, i]) for i, l in enumerate(labels)
-                 if l not in exclude}
+        # labels may include calculated properties that must not be restored:
+        # compare column labels to names that are reserved for SolutionArray
+        # attributes (see `SolutionArray.collect_data`), i.e. scalar values,
+        # arrays with number of species, and arrays with number of reactions.
+        exclude = [lab for lab in labels
+                   if any([lab in self._scalar,
+                           '_'.join(lab.split('_')[:-1]) in self._n_species,
+                           lab.split(' ')[0] in self._n_reactions])]
+        extra = {lab: list(data[:, i]) for i, lab in enumerate(labels)
+                 if lab not in exclude}
         if len(self._extra):
             extra_lists = {k: extra[k] for k in self._extra}
         else:
@@ -846,7 +865,7 @@ class SolutionArray:
         only with 1D `SolutionArray` objects.
         """
         data, labels = self.collect_data(cols=cols, *args, **kwargs)
-        with open(filename, 'w') as outfile:
+        with open(filename, 'w', newline='') as outfile:
             writer = _csv.writer(outfile)
             writer.writerow(labels)
             for row in data:

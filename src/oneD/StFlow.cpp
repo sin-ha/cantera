@@ -28,7 +28,7 @@ StFlow::StFlow(ThermoPhase* ph, size_t nsp, size_t points) :
     m_kExcessLeft(0),
     m_kExcessRight(0),
     m_zfixed(Undef),
-    m_tfixed(Undef)
+    m_tfixed(-1.)
 {
     if (ph->type() == "IdealGas") {
         m_thermo = static_cast<IdealGasPhase*>(ph);
@@ -574,9 +574,9 @@ string StFlow::componentName(size_t n) const
 {
     switch (n) {
     case 0:
-        return "u";
+        return "velocity";
     case 1:
-        return "V";
+        return "spread_rate";
     case 2:
         return "T";
     case 3:
@@ -595,8 +595,18 @@ string StFlow::componentName(size_t n) const
 size_t StFlow::componentIndex(const std::string& name) const
 {
     if (name=="u") {
+        warn_deprecated("StFlow::componentIndex",
+                        "To be changed after Cantera 2.5. "
+                        "Solution component 'u' renamed to 'velocity'");
+        return 0;
+    } else if (name=="velocity") {
         return 0;
     } else if (name=="V") {
+        warn_deprecated("StFlow::componentIndex",
+                        "To be changed after Cantera 2.5. "
+                        "Solution component 'V' renamed to 'spread_rate'");
+        return 1;
+    } else if (name=="spread_rate") {
         return 1;
     } else if (name=="T") {
         return 2;
@@ -610,8 +620,9 @@ size_t StFlow::componentIndex(const std::string& name) const
                 return n;
             }
         }
+        throw CanteraError("StFlow1D::componentIndex",
+                           "no component named " + name);
     }
-    return npos;
 }
 
 void StFlow::restore(const XML_Node& dom, doublereal* soln, int loglevel)

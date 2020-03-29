@@ -467,7 +467,26 @@ cdef class _FlowBase(Domain1D):
         del self.flow
 
     def set_boundary_emissivities(self, e_left, e_right):
-        self.flow.setBoundaryEmissivities(e_left, e_right)
+        """
+        .. deprecated:: 2.5
+
+             To be deprecated with version 2.5, and removed thereafter.
+             Replaced by property `boundary_emissivities`.
+        """
+        warnings.warn("Method 'set_boundary_emissivities' to be removed after "
+                      "Cantera 2.5. Replaced by property "
+                      "'boundary_emissivities'", DeprecationWarning)
+        self.boundary_emissivities = e_left, e_right
+
+    property boundary_emissivities:
+        """ Set/get boundary emissivities. """
+        def __get__(self):
+            return self.flow.leftEmissivity(), self.flow.rightEmissivity()
+        def __set__(self, tuple epsilon):
+            if len(epsilon) == 2:
+                self.flow.setBoundaryEmissivities(epsilon[0], epsilon[1])
+            else:
+                raise ValueError("Setter requires tuple of length 2.")
 
     property radiation_enabled:
         """ Determines whether or not to include radiative heat transfer """
@@ -475,6 +494,17 @@ cdef class _FlowBase(Domain1D):
             return self.flow.radiationEnabled()
         def __set__(self, do_radiation):
             self.flow.enableRadiation(<cbool>do_radiation)
+
+    property radiative_heat_loss:
+        """
+        Return radiative heat loss (only non-zero if radiation is enabled).
+        """
+        def __get__(self):
+            cdef int j
+            cdef np.ndarray[np.double_t, ndim=1] data = np.empty(self.n_points)
+            for j in range(self.n_points):
+                data[j] = self.flow.radiativeHeatLoss(j)
+            return data
 
     def set_free_flow(self):
         """
@@ -490,6 +520,14 @@ cdef class _FlowBase(Domain1D):
         flames, using specified inlet mass fluxes.
         """
         self.flow.setAxisymmetricFlow()
+
+    property flow_type:
+        """
+        Return the type of flow domain being represented, either "Free Flame" or
+        "Axisymmetric Stagnation".
+        """
+        def __get__(self):
+            return pystr(self.flow.flowType())
 
 
 cdef CxxIdealGasPhase* getIdealGasPhase(ThermoPhase phase) except *:
@@ -507,9 +545,9 @@ cdef class IdealGasFlow(_FlowBase):
     equations for the flow in a finite-height gap of infinite radial extent.
     The solution variables are:
 
-    *u*
+    *velocity*
         axial velocity
-    *V*
+    *spread_rate*
         radial velocity divided by radius
     *T*
         temperature
@@ -832,9 +870,7 @@ cdef class Sim1D:
 
     def set_initial_guess(self, *args, **kwargs):
         """
-        Set the initial guess for the solution. Derived classes extend this
-        function to set approximations for the temperature and composition
-        profiles.
+        Store arguments for initial guess and prepare storage for solution.
         """
         self._initial_guess_args = args
         self._initial_guess_kwargs = kwargs
@@ -920,7 +956,13 @@ cdef class Sim1D:
         flow_domains = [D for D in self.domains if isinstance(D, _FlowBase)]
         zmin = [D.grid[0] for D in flow_domains]
         zmax = [D.grid[-1] for D in flow_domains]
-        nPoints = [len(flow_domains[0].grid), 12, 24, 48]
+
+        # 'data' entry is used for restart
+        data = self._initial_guess_kwargs.get('data')
+        if data:
+           nPoints = [len(flow_domains[0].grid)]
+        else:
+           nPoints = [len(flow_domains[0].grid), 12, 24, 48]
 
         for N in nPoints:
             for i,D in enumerate(flow_domains):
@@ -930,8 +972,9 @@ cdef class Sim1D:
                 if N != len(D.grid):
                     D.grid = np.linspace(zmin[i], zmax[i], N)
 
-            self.set_initial_guess(*self._initial_guess_args,
-                                   **self._initial_guess_kwargs)
+            if not data:
+                self.set_initial_guess(*self._initial_guess_args,
+                                       **self._initial_guess_kwargs)
 
             # Try solving with energy enabled, which usually works
             log('Solving on {} point grid with energy equation enabled', N)
@@ -1124,8 +1167,34 @@ cdef class Sim1D:
         """
         Set the temperature used to fix the spatial location of a freely
         propagating flame.
+
+        .. deprecated:: 2.5
+
+             To be deprecated with version 2.5, and removed thereafter.
+             Replaced by property `fixed_temperature`.
         """
-        self.sim.setFixedTemperature(T)
+        warnings.warn("Method 'set_fixed_temperature' to be removed after "
+                      "Cantera 2.5. Replaced by property 'fixed_temperature'",
+                      DeprecationWarning)
+        self.fixed_temperature = T
+
+    property fixed_temperature:
+        """
+        Set the temperature used to fix the spatial location of a freely
+        propagating flame.
+        """
+        def __get__(self):
+            return self.sim.fixedTemperature()
+        def __set__(self, T):
+            self.sim.setFixedTemperature(T)
+
+    property fixed_temperature_location:
+        """
+        Return the location of the point where temperature is fixed for a freely
+        propagating flame.
+        """
+        def __get__(self):
+            return self.sim.fixedTemperatureLocation()
 
     def save(self, filename='soln.xml', name='solution', description='none',
              loglevel=1):
