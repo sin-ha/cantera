@@ -515,7 +515,7 @@ class SolutionArray:
 
         reserved = self.__dir__()
 
-        self._extra = {}
+        self._extra =  {}
         if isinstance(extra, dict):
             for name, v in extra.items():
                 if name in reserved:
