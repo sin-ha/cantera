@@ -539,7 +539,7 @@ class SolutionArray:
                 self._extra[name] = []
 
         elif extra:
-            raise ValueError("Initial values for extra properties must be"
+            raise ValueError(" Initial values for extra properties must be"
                 " supplied in a dict if the SolutionArray is not initially"
                 " empty")
 
